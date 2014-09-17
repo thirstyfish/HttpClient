@@ -9,7 +9,7 @@
 #endif
 
 // Initialize constants
-const char* HttpClient::kUserAgent = "Arduino/2.1";
+// const char* HttpClient::kUserAgent = "Arduino/2.1";
 const char* HttpClient::kContentLengthPrefix = HTTP_HEADER_CONTENT_LENGTH ": ";
 
 #ifdef PROXY_ENABLED // currently disabled as introduces dependency on Dns.h in Ethernet
@@ -39,9 +39,9 @@ void HttpClient::resetState()
 {
   iState = eIdle;
   iStatusCode = 0;
-  iContentLength = 0;
+  iContentLength = kNoContentLengthHeader;
   iBodyLengthConsumed = 0;
-  iContentLengthPtr = 0;
+  iContentLengthPtr = kContentLengthPrefix;
   iHttpResponseTimeout = kHttpResponseTimeout;
 }
 
@@ -173,7 +173,7 @@ int HttpClient::sendInitialHeaders(const char* aServerName, IPAddress aServerIP,
     }
 #endif
     iClient->print(aURLPath);
-    iClient->println(" HTTP/1.1");
+    iClient->println(" HTTP/1.0");
     // The host header, if required
     if (aServerName)
     {
@@ -190,10 +190,6 @@ int HttpClient::sendInitialHeaders(const char* aServerName, IPAddress aServerIP,
     if (aUserAgent)
     {
         sendHeader(HTTP_HEADER_USER_AGENT, aUserAgent);
-    }
-    else
-    {
-        sendHeader(HTTP_HEADER_USER_AGENT, kUserAgent);
     }
     // We don't support persistent connections, so tell the server to
     // close this connection after we're done
@@ -458,7 +454,7 @@ int HttpClient::read()
     int ret = iClient->read();
     if (ret >= 0)
     {
-        if (endOfHeadersReached() && iContentLength > 0)
+        if (endOfHeadersReached() && iContentLength > kNoContentLengthHeader)
 	{
             // We're outputting the body now and we've seen a Content-Length header
             // So keep track of how many bytes are left
@@ -472,7 +468,7 @@ int HttpClient::read()
 int HttpClient::read(uint8_t *buf, size_t size)
 {
     int ret =iClient->read(buf, size);
-    if (endOfHeadersReached() && iContentLength > 0)
+    if (endOfHeadersReached() && iContentLength > kNoContentLengthHeader)
     {
         // We're outputting the body now and we've seen a Content-Length header
         // So keep track of how many bytes are left
@@ -510,8 +506,6 @@ int HttpClient::readHeader()
             {
                 // We've reached the end of the prefix
                 iState = eReadingContentLength;
-                // Just in case we get multiple Content-Length headers, this
-                // will ensure we just get the value of the last one
                 iContentLength = 0;
             }
         }
